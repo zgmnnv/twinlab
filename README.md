@@ -1,6 +1,22 @@
-# TwinLab
+# TwinLab : Digital Twin and Analytics Platform
 
+TwinLab is a modular platform for building, visualizing, and analyzing digital twins in real time. The system enables modeling of physical objects (machines, sensors, processes) as well as complex environments (production lines, logistics networks). It supports integration of live telemetry streams, predictive analytics, and interactive dashboards for decision-making.
 
+The platform architecture combines multiple components:
+
+Backend (Python/FastAPI): REST and WebSocket APIs for managing digital twin entities and data.
+
+Streaming (Kafka + NiFi): ingestion and processing of real-time telemetry and control signals.
+
+Frontend (React + Three.js): interactive 3D visualization of objects and processes.
+
+BI Integration (Superset / Power BI / Grafana): dashboards and KPIs for business analysis.
+
+Jupyter Integration: notebooks for data science, machine learning, and sandbox experiments.
+
+DevOps (Docker + CI/CD): containerized deployment and orchestration via Docker Compose.
+
+TwinLab is designed for three scenarios: engineering decision support, academic research, and education in IoT, AI, and digital transformation. The goal is to provide a unified platform that bridges real-time simulation, analytics, and visualization in a single environment.
 
 ## Getting started
 
