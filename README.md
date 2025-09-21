@@ -1,4 +1,4 @@
-# TwinLab : Digital Twin and Analytics Platform
+# TwinLab: Digital Twin and Analytics Platform
 
 TwinLab is a modular platform for building, visualizing, and analyzing digital twins in real time. The system enables modeling of physical objects (machines, sensors, processes) as well as complex environments (production lines, logistics networks). It supports integration of live telemetry streams, predictive analytics, and interactive dashboards for decision-making.
 
