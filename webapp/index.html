@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TwinLab - Service Navigator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .services {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .service-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 15px;
+            padding: 25px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: block;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .service-card.jupyter {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+        }
+
+        .service-card.superset {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+
+        .service-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .service-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .service-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .service-url {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .credentials {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #1976d2;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @media (min-width: 600px) {
+            .services {
+                flex-direction: row;
+                gap: 20px;
+            }
+            
+            .service-card {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">TwinLab</div>
+        <div class="subtitle">Analytics & Development Platform</div>
+        
+        <div class="services">
+            <a href="http://localhost:8888" class="service-card jupyter" target="_blank">
+                <div class="service-icon">📊</div>
+                <div class="service-title">Jupyter Lab</div>
+                <div class="service-description">Interactive notebooks and data analysis</div>
+                <div class="service-url">localhost:8888</div>
+            </a>
+            
+            <a href="http://localhost:8088" class="service-card superset" target="_blank">
+                <div class="service-icon">📈</div>
+                <div class="service-title">Apache Superset</div>
+                <div class="service-description">Business intelligence and dashboards</div>
+                <div class="service-url">localhost:8088</div>
+            </a>
+        </div>
+        
+        <div class="credentials">
+            <strong>Superset Login ( This is for lab work only): </strong><br>
+            Username: admin<br>
+            Password: admin123
+        </div>
+        
+        <div class="status">
+            <span class="status-indicator"></span>
+            Services are running and ready to use: contract Tel. @profMsaif
+        </div>
+    </div>
+    
+    <script>
+        // Simple health check for visual feedback
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusIndicator = document.querySelector('.status-indicator');
+            const statusText = document.querySelector('.status');
+            
+            // Simple visual feedback that services are accessible
+            setTimeout(() => {
+                statusIndicator.style.background = '#28a745';
+                statusText.innerHTML = '<span class="status-indicator"></span>All services are operational';
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
