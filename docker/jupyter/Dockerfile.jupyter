@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy the initialization script
+COPY scripts/jupyter-init.sh /usr/local/bin/jupyter-init.sh
+RUN chmod +x /usr/local/bin/jupyter-init.sh
+
 # Switch back to jovyan user
 USER jovyan
 
@@ -33,9 +37,6 @@ RUN /home/jovyan/venvs/data_analysis/bin/pip install --upgrade pip && \
     matplotlib==3.7.1 \
     numpy==1.24.3 \
     scipy==1.10.1 \
-    python-docx==1.2.0 \
-    openpyxl==3.1.5\
-    xlrd \
     ipykernel
 
 # Register kernels with Jupyter
@@ -51,3 +52,6 @@ EXPOSE 8888
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8888/ || exit 1
+
+# Use the initialization script as the entry point
+CMD ["/usr/local/bin/jupyter-init.sh"]
