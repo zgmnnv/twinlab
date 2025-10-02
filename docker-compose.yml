@@ -45,6 +45,9 @@ services:
       - "8888:8888"
     env_file:
       - .env
+    environment:
+      - NB_UID=1000
+      - NB_GID=1000
     volumes:
       - ./notebooks:/home/jovyan/work
       - jupyter_static:/home/jovyan/.local/share/jupyter
