@@ -14,6 +14,10 @@ chown -R ${NB_UID}:${NB_GID} /home/jovyan/.jupyter
 
 echo "✅ Permissions set!"
 
+# Set up proper umask for file creation
+echo "🔧 Setting up file creation permissions..."
+umask 002
+
 # Switch to jovyan user and start Jupyter
 echo "👤 Switching to jovyan user..."
-exec su jovyan -c "export PATH=/opt/conda/bin:$PATH && jupyter notebook --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.allow_origin='*' --NotebookApp.allow_root=True --ip=0.0.0.0 --port=8888 --no-browser"
+exec su jovyan -c "export PATH=/opt/conda/bin:$PATH && export UMASK=002 && jupyter notebook --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.allow_origin='*' --NotebookApp.allow_root=True --ip=0.0.0.0 --port=8888 --no-browser"
