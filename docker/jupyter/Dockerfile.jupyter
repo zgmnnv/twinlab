@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the initialization script
 COPY scripts/jupyter-init.sh /usr/local/bin/jupyter-init.sh
+# Fix line endings and make the script executable
+RUN sed -i 's/\r$//' /usr/local/bin/jupyter-init.sh
 RUN chmod +x /usr/local/bin/jupyter-init.sh
 
 # Switch back to jovyan user

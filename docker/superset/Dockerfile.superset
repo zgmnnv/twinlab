@@ -17,6 +17,7 @@ RUN . /app/.venv/bin/activate && \
 
 # Copy the initialization script
 COPY scripts/superset-init.sh /app/superset-init.sh
+RUN sed -i 's/\r$//' /app/superset-init.sh
 RUN chmod +x /app/superset-init.sh
 
 # Switch back to the superset user
