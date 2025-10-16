@@ -1,0 +1,25 @@
+# --- Enforce LF line endings for all shell scripts ---
+*.sh text eol=lf
+
+# --- Enforce LF for Docker, config, SQL, YAML files ---
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.env text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf
+
+# --- Enforce LF for Markdown and docs (so diffs stay clean) ---
+*.md text eol=lf
+*.txt text eol=lf
+
+# --- Keep binary files untouched (no line ending conversions) ---
+*.zip binary
+*.tar binary
+*.gz binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.db binary
+*.mp4 binary
