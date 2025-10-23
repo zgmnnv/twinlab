@@ -2,7 +2,7 @@ FROM apache/superset:5.0.0
 
 USER root
 
-# Install packages
+# Install packages and Chrome
 RUN . /app/.venv/bin/activate && \
     uv pip install \
     psycopg2-binary \
@@ -14,6 +14,34 @@ RUN . /app/.venv/bin/activate && \
     "gevent>=1.4.0" \
     && playwright install-deps \
     && PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright-browsers playwright install chromium
+
+# Install Chrome and ChromeDriver for screenshots
+RUN apt-get update && \
+    apt-get install -y \
+    wget \
+    gnupg \
+    unzip \
+    curl \
+    xvfb \
+    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ChromeDriver using the new API
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3) && \
+    CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}") && \
+    wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
+
+# Create cache directories with proper permissions
+RUN mkdir -p /app/superset_home/.cache/selenium \
+    && chown -R superset:superset /app/superset_home/.cache \
+    && chmod -R 755 /app/superset_home/.cache
 
 # Copy the initialization script
 COPY scripts/superset-init.sh /app/superset-init.sh
