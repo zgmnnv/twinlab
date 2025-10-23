@@ -20,9 +20,7 @@ superset fab create-admin \
 echo "🔐 Initializing Superset..."
 superset init
 
-# Load sample data
-echo "📈 Loading sample data..."
-superset load_examples || echo "Sample data loading failed or skipped"
+# Sample data loading removed - using PostgreSQL only
 
 echo "✅ Superset initialization complete!"
 
