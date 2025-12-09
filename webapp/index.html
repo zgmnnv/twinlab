@@ -26,7 +26,7 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             padding: 40px;
             text-align: center;
-            max-width: 600px;
+            max-width: 800px;
             width: 90%;
         }
 
@@ -48,9 +48,10 @@
         }
 
         .services {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
+            margin-bottom: 30px;
         }
 
         .service-card {
@@ -76,6 +77,11 @@
 
         .service-card.superset {
             background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+
+        .service-card.digital-twins {
+            grid-column: span 2;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
 
         .service-title {
@@ -134,14 +140,13 @@
             100% { opacity: 1; }
         }
 
-        @media (min-width: 600px) {
+        @media (max-width: 768px) {
             .services {
-                flex-direction: row;
-                gap: 20px;
+                grid-template-columns: 1fr;
             }
             
-            .service-card {
-                flex: 1;
+            .service-card.digital-twins {
+                grid-column: span 1;
             }
         }
     </style>
@@ -165,10 +170,17 @@
                 <div class="service-description">Business intelligence and dashboards</div>
                 <div class="service-url">localhost:8088</div>
             </a>
+
+            <a href="localhost:8080" class="service-card digital-twins" target="_blank">
+                <div class="service-icon">🌐</div>
+                <div class="service-title">OpenTwins UI</div>
+                <div class="service-description">Digital Twins System</div>
+                <div class="service-url">localhost:8080</div>
+            </a>
         </div>
         
         <div class="credentials">
-            <strong>Superset Login ( This is for lab work only): </strong><br>
+            <strong>Superset Login (This is for lab work only): </strong><br>
             Username: admin<br>
             Password: admin123
         </div>
