@@ -1,0 +1,16 @@
+auth:
+  existingSecret: custom-postgresql-credentials
+  secretKeys:
+    adminPasswordKey: POSTGRES_PASSWORD
+    userPasswordKey: SUPERSET_PASSWORD
+
+primary:
+  persistence:
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+service:
+  type: ClusterIP
+  ports:
+    postgresql: 5432

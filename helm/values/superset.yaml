@@ -1,0 +1,22 @@
+configOverrides:
+  secret: |
+    SECRET_KEY = 'example'
+
+# envFromSecrets:
+#   - superset-custom-env
+
+postgresql:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+
+redis:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+
+bootstrapScript: |
+  #!/bin/bash
+  if [ ! -f ~/bootstrap ]; then echo "Running Superset with uid {{ .Values.runAsUser }}" > ~/bootstrap; fi
+  . /app/.venv/bin/activate && uv pip install psycopg2-binary flightsql-dbapi influxdb-client

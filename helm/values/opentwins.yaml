@@ -1,0 +1,78 @@
+example:
+  enabled: false
+
+connections:
+  ditto:
+    source:
+      hono:
+        enabled: true
+        tenantName: ditto
+        username: example
+        password: example
+      mosquitto:
+        enabled: true
+        address: "telemetry/#"
+    target:
+      mosquitto:
+        enabled: true
+        address: "opentwins/#"
+      kafka:
+        enabled: true
+        topic: "opentwins"
+  telegraf:
+    source:
+      mosquitto:
+        enabled: true
+      kafka:
+        enabled: true
+    target:
+      influxdb2:
+        enabled: true
+
+externalInfluxdb2: {}
+externalMosquitto: {}
+
+ditto:
+  enabled: true
+  global:
+    basicAuthUsers:
+      ditto:
+        user: example
+        password: example
+      devops:
+        user: example
+        password: example
+  swaggerui:
+    enabled: true
+  dittoui:
+    enabled: true
+
+  gateway:
+    config:
+      authentication:
+        enablePreAuthentication: true
+        devops:
+          devopsPassword: example
+          statusPassword: example
+
+mosquitto:
+  enabled: true
+
+kafka:
+  enabled: true
+  autoCreateTopicsEnable: true
+
+influxdb2:
+  enabled: true
+  image:
+    pullPolicy: Always
+  adminUser:
+    organization: example
+    bucket: example
+    password: example
+    token: example
+
+grafana:
+  enabled: true
+  adminUser: example
+  adminPassword: example
