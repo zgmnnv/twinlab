@@ -1,0 +1,23 @@
+{
+  "namespace": "tincture_forecast",
+  "main_twin_name": "grusha_ulun",
+
+  "forecast_names": [
+    "grusha_ulun:forecast_1",
+    "grusha_ulun:forecast_2",
+    "grusha_ulun:forecast_3",
+    "grusha_ulun:forecast_4"
+  ],
+  "ingredient_names": [
+    "grusha_ulun:ingredient_1",
+    "grusha_ulun:ingredient_2",
+    "grusha_ulun:ingredient_3",
+    "grusha_ulun:ingredient_4"
+  ],
+
+  "mqtt_broker": "194.87.201.134",
+  "mqtt_port": 30511,
+  "mqtt_password": "ditto",
+  "mqtt_username": "ditto"
+
+}

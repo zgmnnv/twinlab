@@ -124,3 +124,21 @@ This is a **development-only** setup. For production:
 - Use HTTPS
 - Configure proper security headers
 - Use environment-specific secrets management
+
+## 🚨 Example
+
+This **[example](example/tincture_twin)** demonstrates the automated process of food production planning based on current stock levels and raw material requirements. 
+- First, product movement data stored in a CSV file are preprocessed and saved. 
+- Then, calculations for forecasted volumes of finished products and raw materials needs are performed. 
+- The calculated information is sent to the company's digital twin system, enabling real-time tracking of production processes and inventory levels. 
+
+Additionally, an interactive dashboard using the Dash library is built, showing key metrics such as average daily consumption, minimum necessary reserve, forecasted reserves, and production demand. This dashboard provides a convenient visualization of all computed indicators.
+
+**How to launch it**
+
+1. Download and install project dependencies (using e.g., pip install -r requirements.txt command).
+2. Prepare your CSV file with relevant product movement data.
+3. Run the script from the terminal/command prompt using python main.py.
+4. After processing completes, navigate to the provided local address in your browser to view the interactive dashboard.
+
+**[More information about this twin.](example/tincture_twin/README.md)**
