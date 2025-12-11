@@ -1,105 +1,266 @@
 # TwinLab Development Environment
 
-A complete development setup with Docker Compose featuring Apache Superset, Jupyter Lab, and a simple webapp, all accessible through direct port access.
+Проект перешел на использование **Helm** для развертывания в Kubernetes.
 
-## 🚀 Quick Start
+## 🏗️ Архитектура
 
-1. **Run the setup script:**
-   ```bash
-   ./setup.sh
-   ```
+Система построена на основе платформы OpenTwins и включает следующие компоненты:
 
-2. **Access your services:**
-   - **TwinLab Homepage**: http://localhost/
-   - **Apache Superset**: http://localhost:8088/
-   - **Jupyter Lab**: http://localhost:8888/
+### Поток данных:
+1. **IoT устройства** отправляют данные через протоколы (MQTT, HTTP) в **HONO** (Protocol Adapter).
+2. **HONO** нормализует данные и отправляет в **Message Queue** (Kafka/RabbitMQ).
+3. **Jupyter** может интегрироваться с MQ для обработки данных.
+4. **Message Queue** распределяет данные в **Eclipse Ditto** (для управления цифровыми двойниками) и **Telegraf** (для сбора метрик).
+5. **Eclipse Ditto** хранит состояние в **MongoDB** и взаимодействует с **Grafana** для живых дашбордов.
+6. **Telegraf** отправляет временные ряды в **InfluxDB**.
+7. **InfluxDB** предоставляет данные для аналитики в **Superset**.
+8. **Grafana** может обратно взаимодействовать с **Ditto** для обновления состояний.
 
-## 📋 Services
+## 📋 Компоненты и Сервисы
 
-### Apache Superset (Port 8088)
-- **Purpose**: Business intelligence and data visualization
-- **Login**: admin / admin123
-- **Features**: 
-  - Pre-loaded with sample datasets
-  - Full functionality without subpath issues
-  - PostgreSQL metadata store
+В состав среды входят следующие интегрированные компоненты:
 
-### Jupyter Lab (Port 8888)
-- **Purpose**: Interactive notebooks and data analysis
-- **Features**:
-  - Multiple Python kernels (Generic, Data Analysis)
-  - Pre-installed data science libraries
-  - WebSocket support for terminals and kernels
+### 1. OpenTwins
+Основная платформа для управления цифровыми двойниками. Обеспечивает связность и управление жизненным циклом двойников.
+- **Репозиторий**: [ertis-research/opentwins](https://github.com/ertis-research/opentwins)
 
-### Webapp (Port 80)
-- **Purpose**: Service navigator and homepage
-- **Features**: Modern UI with direct links to all services
+### 2. Eclipse Ditto
+Фреймворк для создания и управления цифровыми двойниками (Digital Twins). Предоставляет API для взаимодействия с устройствами как с цифровыми объектами.
+- Хранит состояние цифровых двойников в **MongoDB**.
+- Интегрируется с **Grafana** для живых дашбордов.
 
-## 🛠️ Manual Setup
+### 3. HONO (Eclipse Hono)
+Протокол-адаптер для IoT устройств. Нормализует данные от различных протоколов (MQTT, HTTP, AMQP) и отправляет их в очередь сообщений.
+- Обеспечивает безопасное и масштабируемое подключение IoT устройств.
 
-If you prefer to set up manually:
+### 4. Message Queue (Kafka / RabbitMQ)
+Очередь сообщений для асинхронной обработки данных.
+- Используется для маршрутизации данных между компонентами системы.
 
-1. **Start services:**
-   ```bash
-   docker-compose up -d
-   ```
+### 5. Telegraf
+Коллектор метрик и данных временных рядов.
+- Собирает данные из очередей и отправляет в базы данных временных рядов.
 
-2. **Check status:**
-   ```bash
-   docker-compose ps
-   ```
+### 6. InfluxDB
+База данных для временных рядов.
+- Хранит телеметрию и метрики от IoT устройств для последующего анализа.
 
-## 🔧 Configuration
+### 7. MongoDB
+Документоориентированная база данных.
+- Используется **Eclipse Ditto** для хранения состояния цифровых двойников.
 
-### Environment Variables
-All configuration is in `.env`:
-- Superset admin credentials
-- Database settings
-- Jupyter configuration
+### 8. Apache Superset
+Мощная система бизнес-аналитики (BI) и визуализации данных.
+- **Назначение**: Визуализация телеметрии и аналитика данных из **InfluxDB**.
+- **Особенности**: Преднастроенные дашборды и подключение к источникам данных.
 
-### Superset Configuration
-- Located in `config/superset/superset_config.py`
-- Configured for direct access (no subpath)
-- Includes sample database connections
+### 9. Grafana
+Платформа для мониторинга и визуализации данных в реальном времени.
+- **Назначение**: Живые дашборды для цифровых двойников из **Ditto**.
+- Интегрируется с **MongoDB** и **InfluxDB**.
 
-## 📊 Sample Data
+### 10. Jupyter Lab
+Интерактивная среда разработки для Data Science.
+- **Назначение**: Анализ данных, прототипирование ML-моделей и работа с данными OpenTwins через Python.
+- **Особенности**: Предустановленные библиотеки для анализа данных. Может интегрироваться с **Message Queue**.
 
-Superset comes pre-loaded with:
-- Sample datasets for testing
-- Example dashboards and charts
-- Various data source connections
+### 11. PostgreSQL
+Надежная реляционная база данных.
+- Используется как хранилище метаданных для **Superset** и других сервисов (не для Ditto).
 
-## 🐛 Troubleshooting
+## ☸️ Развертывание через Helm
 
-### Services not starting
+Это **основной и рекомендуемый** способ развертывания. Все необходимые конфигурационные файлы находятся в директории `helm/`.
+
+### Предварительные требования
+
+Перед началом установки убедитесь, что:
+- Установлен **Helm** (версия 3.x или выше).
+- Установлен **kubectl** и настроен доступ к кластеру Kubernetes.
+- Кластер имеет достаточные ресурсы (CPU, память) для развертывания всех компонентов.
+- Установлены необходимые зависимости, такие как MongoDB, InfluxDB, Kafka/RabbitMQ (если не включены в чарты).
+
+### Структура конфигурации
+
+В папке `helm/values/` находятся файлы значений (`values.yaml`) для тонкой настройки каждого компонента при деплое:
+
+*   `opentwins.yaml`: Специфичные настройки платформы OpenTwins.
+*   `ditto.yaml`: Конфигурация Eclipse Ditto (подключения, полиси).
+*   `superset.yaml`: Настройки Apache Superset (креденшиалы, инициализация).
+*   `jupyter.yaml`: Настройки окружения Jupyter Lab.
+*   `postgresql.yaml`: Параметры базы данных.
+
+### Установка
+
+Для развертывания стека используются отдельные официальные Helm-чарты для каждого компонента.
+
+Сначала добавьте необходимые репозитории чартов:
+
 ```bash
-docker-compose logs -f [service_name]
+# Добавление репозиториев
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add eclipse-ditto https://eclipse-ditto.github.io/charts/
+helm repo add superset https://apache.github.io/superset/tree/master/helm/superset
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+helm repo add ertis https://ertis-research.github.io/Helm-charts/
+
+# Обновление репозиториев
+helm repo update
 ```
 
-### Can't access services
-1. Verify services are running: `docker-compose ps`
-2. Check if ports are available: `netstat -tulpn | grep :8088`
-
-### Superset issues
-1. Check database connection: `docker-compose logs postgres`
-2. Reset Superset: `docker-compose down && docker-compose up -d`
-
-### Jupyter issues
-1. Check if notebooks directory is accessible
-2. Verify WebSocket connections in browser dev tools
-
-## 🛑 Stopping Services
+Примеры команд установки для каждого компонента (используйте соответствующие values-файлы из `helm/values/`):
 
 ```bash
-docker-compose down
+# PostgreSQL
+helm upgrade --install postgresql bitnami/postgresql \
+  -f helm/values/postgresql.yaml
+
+# Eclipse Ditto
+helm upgrade --install ditto eclipse-ditto/ditto \
+  -f helm/values/ditto.yaml
+
+# Apache Superset
+helm upgrade --install superset superset/superset \
+  -f helm/values/superset.yaml
+
+# Jupyter Lab
+helm upgrade --install jupyter jupyterhub/jupyterhub \
+  -f helm/values/jupyter.yaml
+
+# OpenTwins
+helm upgrade --install opentwins ertis/opentwins \
+  -f helm/values/opentwins.yaml
 ```
 
-To remove all data:
+### Проверка развертывания
+
+После установки проверьте статус подов:
+
 ```bash
-docker-compose down -v
+kubectl get pods
 ```
 
-## 📁 Project Structure
+Для доступа к сервисам используйте `kubectl port-forward` или настройте Ingress.
+
+### Удаление
+
+Для удаления компонентов:
+
+```bash
+helm uninstall superset
+helm uninstall opentwins
+# и т.д. для остальных
+```
+```
+![schema](chema.png)
+
+### Поток данных:
+1. **IoT устройства** отправляют данные через протоколы (MQTT, HTTP) в **HONO** (Protocol Adapter).
+2. **HONO** нормализует данные и отправляет в **Message Queue** (Kafka/RabbitMQ).
+3. **Jupyter** может интегрироваться с MQ для обработки данных.
+4. **Message Queue** распределяет данные в **Eclipse Ditto** (для управления цифровыми двойниками) и **Telegraf** (для сбора метрик).
+5. **Eclipse Ditto** хранит состояние в **MongoDB** и взаимодействует с **Grafana** для живых дашбордов.
+6. **Telegraf** отправляет временные ряды в **InfluxDB**.
+7. **InfluxDB** предоставляет данные для аналитики в **Superset**.
+8. **Grafana** может обратно взаимодействовать с **Ditto** для обновления состояний.
+
+## 📋 Компоненты и Сервисы
+
+В состав среды входят следующие интегрированные компоненты:
+
+### 1. OpenTwins
+Основная платформа для управления цифровыми двойниками. Обеспечивает связность и управление жизненным циклом двойников.
+- **Репозиторий**: [ertis-research/opentwins](https://github.com/ertis-research/opentwins)
+
+### 2. Eclipse Ditto
+Фреймворк для создания и управления цифровыми двойниками (Digital Twins). Предоставляет API для взаимодействия с устройствами как с цифровыми объектами.
+- Хранит состояние цифровых двойников в **MongoDB**.
+- Интегрируется с **Grafana** для живых дашбордов.
+
+### 3. HONO (Eclipse Hono)
+Протокол-адаптер для IoT устройств. Нормализует данные от различных протоколов (MQTT, HTTP, AMQP) и отправляет их в очередь сообщений.
+- Обеспечивает безопасное и масштабируемое подключение IoT устройств.
+
+### 4. Message Queue (Kafka / RabbitMQ)
+Очередь сообщений для асинхронной обработки данных.
+- Используется для маршрутизации данных между компонентами системы.
+
+### 5. Telegraf
+Коллектор метрик и данных временных рядов.
+- Собирает данные из очередей и отправляет в базы данных временных рядов.
+
+### 6. InfluxDB
+База данных для временных рядов.
+- Хранит телеметрию и метрики от IoT устройств для последующего анализа.
+
+### 7. MongoDB
+Документоориентированная база данных.
+- Используется **Eclipse Ditto** для хранения состояния цифровых двойников.
+
+### 8. Apache Superset
+Мощная система бизнес-аналитики (BI) и визуализации данных.
+- **Назначение**: Визуализация телеметрии и аналитика данных из **InfluxDB**.
+- **Особенности**: Преднастроенные дашборды и подключение к источникам данных.
+
+### 9. Grafana
+Платформа для мониторинга и визуализации данных в реальном времени.
+- **Назначение**: Живые дашборды для цифровых двойников из **Ditto**.
+- Интегрируется с **MongoDB** и **InfluxDB**.
+
+### 10. Jupyter Lab
+Интерактивная среда разработки для Data Science.
+- **Назначение**: Анализ данных, прототипирование ML-моделей и работа с данными OpenTwins через Python.
+- **Особенности**: Предустановленные библиотеки для анализа данных. Может интегрироваться с **Message Queue**.
+
+### 11. PostgreSQL
+Надежная реляционная база данных.
+- Используется как хранилище метаданных для **Superset** и других сервисов (не для Ditto).
+
+## ☸️ Развертывание через Helm
+
+Это **основной и рекомендуемый** способ развертывания. Все необходимые конфигурационные файлы находятся в директории `helm/`.
+
+### Структура конфигурации
+
+В папке `helm/values/` находятся файлы значений (`values.yaml`) для тонкой настройки каждого компонента при деплое:
+
+*   `opentwins.yaml`: Специфичные настройки платформы OpenTwins.
+*   `ditto.yaml`: Конфигурация Eclipse Ditto (подключения, полиси).
+*   `superset.yaml`: Настройки Apache Superset (креденшиалы, инициализация).
+*   `jupyter.yaml`: Настройки окружения Jupyter Lab.
+*   `postgresql.yaml`: Параметры базы данных.
+
+### Установка
+
+Для развертывания стека используются отдельные официальные Helm-чарты для каждого компонента. Убедитесь, что у вас настроен доступ к кластеру Kubernetes и установлен Helm.
+
+Примеры команд установки для каждого компонента (используйте соответствующие values-файлы из `helm/values/`):
+
+```bash
+# PostgreSQL
+helm upgrade --install postgresql bitnami/postgresql \
+  -f helm/values/postgresql.yaml
+
+# Eclipse Ditto
+helm upgrade --install ditto eclipse-ditto/ditto \
+  -f helm/values/ditto.yaml
+
+# Apache Superset
+helm upgrade --install superset apache/superset \
+  -f helm/values/superset.yaml
+
+# Jupyter Lab
+helm upgrade --install jupyter jupyterhub/jupyterhub \
+  -f helm/values/jupyter.yaml
+
+# OpenTwins (предполагается пользовательский чарт)
+helm upgrade --install opentwins <репозиторий-opentwins> \
+  -f helm/values/opentwins.yaml
+```
+
+**Примечание:** Для OpenTwins укажите актуальный репозиторий чарта. Убедитесь, что все зависимости (например, MongoDB, InfluxDB, Kafka) развернуты отдельно или включены в чарты.
+
+## 📁 Структура Проекта
 
 ```
 twinlab/
@@ -117,28 +278,12 @@ twinlab/
 └── notebooks/                  # Jupyter notebooks
 ```
 
-## 🔒 Security Notes
+## 🔒 Безопасность
 
-This is a **development-only** setup. For production:
-- Change all default passwords
-- Use HTTPS
-- Configure proper security headers
-- Use environment-specific secrets management
+Данная конфигурация предназначена **только для разработки (Development)**.
 
-## 🚨 Example
-
-This **[example](example/tincture_twin)** demonstrates the automated process of food production planning based on current stock levels and raw material requirements. 
-- First, product movement data stored in a CSV file are preprocessed and saved. 
-- Then, calculations for forecasted volumes of finished products and raw materials needs are performed. 
-- The calculated information is sent to the company's digital twin system, enabling real-time tracking of production processes and inventory levels. 
-
-Additionally, an interactive dashboard using the Dash library is built, showing key metrics such as average daily consumption, minimum necessary reserve, forecasted reserves, and production demand. This dashboard provides a convenient visualization of all computed indicators.
-
-**How to launch it**
-
-1. Download and install project dependencies (using e.g., pip install -r requirements.txt command).
-2. Prepare your CSV file with relevant product movement data.
-3. Run the script from the terminal/command prompt using python main.py.
-4. After processing completes, navigate to the provided local address in your browser to view the interactive dashboard.
-
-**[More information about this twin.](example/tincture_twin/README.md)**
+Для использования в продакшене (Production):
+1.  **Смените все пароли**: В файлах конфигурации используются стандартные пароли (например, `admin`/`admin`).
+2.  **Настройте HTTPS**: Используйте Ingress с TLS сертификатами.
+3.  **Управление секретами**: Не храните пароли в открытом виде в values-файлах, используйте Kubernetes Secrets или внешние хранилища секретов.
+4.  **Network Policies**: Ограничьте сетевой доступ между сервисами.
