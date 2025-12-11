@@ -151,7 +151,7 @@ helm uninstall superset
 helm uninstall opentwins
 # и т.д. для остальных
 ```
-```
+
 ![schema](chema.png)
 
 ### Поток данных:
