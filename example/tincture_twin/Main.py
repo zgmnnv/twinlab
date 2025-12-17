@@ -32,7 +32,7 @@ config_file = "digital_twin_parameters.json"
 publisher = DigitalTwinPublisher(config_file)
 
 publisher.send_data_to_ditto(
-    ingredients_needed['груши'], ingredients_needed['водка'], ingredients_needed['конфеты'], ingredients_needed['ананас'],
+    ingredients_needed['груши'], ingredients_needed['ингредиент V'], ingredients_needed['конфеты'], ingredients_needed['ананас'],
     daily_avg_value, min_product_value, period_forecast_value, required_production_value)
 
 publisher.disconnect()
