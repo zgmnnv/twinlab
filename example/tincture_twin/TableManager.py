@@ -6,7 +6,6 @@ class TableManager:
 
     def preprocess_and_save(self, input_path, output_path):
 
-        os.chdir('/Users/zgmnnv/Dev/TwinLab')
         try:
             # Читаем исходный CSV-файл
             df = pd.read_csv(input_path)

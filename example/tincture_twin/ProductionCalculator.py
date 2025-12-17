@@ -15,7 +15,7 @@ class ProductionCalculator:
         self.last_date = None
         self.total_sales = None
         self.days_in_period = None
-        self.ingredients_recipe = {'груши': 650, 'ананас': 125, 'водка': 500, 'конфеты': 100}
+        self.ingredients_recipe = {'груши': 650, 'ананас': 125, 'ингредиент V': 500, 'конфеты': 100}
         self.load_and_prepare_data()  # Готовим данные сразу при инициализации
 
     def load_and_prepare_data(self):
@@ -99,12 +99,12 @@ class ProductionCalculator:
         """
         grapes_quantity = round(production_volume * self.ingredients_recipe['груши'], 2)
         pineapple_quantity = round(production_volume * self.ingredients_recipe['ананас'], 2)
-        vodka_quantity = round(production_volume * self.ingredients_recipe['водка'], 2)
+        vodka_quantity = round(production_volume * self.ingredients_recipe['ингредиент V'], 2)
         candies_quantity = round(production_volume * self.ingredients_recipe['конфеты'], 2)
 
         return {
             'груши': grapes_quantity,
             'ананас': pineapple_quantity,
-            'водка': vodka_quantity,
+            'ингредиент V': vodka_quantity,
             'конфеты': candies_quantity
         }
