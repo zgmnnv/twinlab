@@ -15,9 +15,9 @@
     "grusha_ulun:ingredient_4"
   ],
 
-  "mqtt_broker": "194.87.201.134",
-  "mqtt_port": 30511,
-  "mqtt_password": "ditto",
-  "mqtt_username": "ditto"
+  "mqtt_broker": "",
+  "mqtt_port": ,
+  "mqtt_password": "",
+  "mqtt_username": ""
 
 }
