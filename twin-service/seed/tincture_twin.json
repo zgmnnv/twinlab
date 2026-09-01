@@ -1,0 +1,52 @@
+{
+  "id": "tincture_ulun",
+  "name": "Настойка «Груша-улун» — планирование производства",
+  "kind": "production_planning",
+  "config": {
+    "unit": "litres",
+    "ingest": {
+      "columns": {
+        "date": "Дата",
+        "inflow": "Приход",
+        "outflow": "Расход",
+        "stock": "Остаток"
+      },
+      "date_format": "%d.%m.%Y",
+      "scale": 0.001
+    },
+    "plan_defaults": {
+      "forecast_days": 7,
+      "weekend_factor": 3,
+      "safety_factor": 0.2,
+      "recipe": {
+        "груши": 650,
+        "ананас": 125,
+        "ингредиент V": 500,
+        "конфеты": 100
+      }
+    }
+  },
+  "state": {
+    "stock": 0,
+    "status": "unknown"
+  },
+  "flow": {
+    "nodes": [
+      { "id": "supply",     "label": "Поставка сырья",     "x": 40,  "y": 60 },
+      { "id": "raw_store",  "label": "Склад сырья",         "x": 240, "y": 60,
+        "show": ["ingredients_total"] },
+      { "id": "production", "label": "Производство",         "x": 440, "y": 60,
+        "rule": "production_needed", "show": ["required_production"] },
+      { "id": "fg_store",   "label": "Склад продукции",      "x": 640, "y": 60,
+        "rule": "stock_vs_safety", "show": ["current_stock", "safety_stock"] },
+      { "id": "shipping",   "label": "Отгрузка / розница",   "x": 840, "y": 60,
+        "show": ["daily_avg_consumption"] }
+    ],
+    "edges": [
+      { "from": "supply",     "to": "raw_store",  "rate": "ingredients_total" },
+      { "from": "raw_store",  "to": "production",  "rate": "required_production" },
+      { "from": "production", "to": "fg_store",    "rate": "required_production" },
+      { "from": "fg_store",   "to": "shipping",    "rate": "daily_avg_consumption" }
+    ]
+  }
+}
