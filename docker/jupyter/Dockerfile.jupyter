@@ -1,59 +1,17 @@
-FROM jupyter/base-notebook:python-3.10.6
+FROM quay.io/jupyter/scipy-notebook:2024-10-28
 
-USER root
+# scipy-notebook already ships numpy / scipy / pandas / scikit-learn /
+# matplotlib / seaborn. Add DB access to the twin database.
+RUN pip install --no-cache-dir \
+      SQLAlchemy==2.0.36 \
+      psycopg2-binary==2.9.10 \
+      requests==2.32.3
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3-venv \
-    python3-pip \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy the initialization script
-COPY scripts/jupyter-init.sh /usr/local/bin/jupyter-init.sh
-# Fix line endings and make the script executable
-RUN sed -i 's/\r$//' /usr/local/bin/jupyter-init.sh
-RUN chmod +x /usr/local/bin/jupyter-init.sh
-
-# Switch back to jovyan user
-USER jovyan
-
-# Create virtual environments
-RUN python -m venv /home/jovyan/venvs/generic
-RUN python -m venv /home/jovyan/venvs/data_analysis
-
-# Install packages in generic environment
-RUN /home/jovyan/venvs/generic/bin/pip install --upgrade pip && \
-    /home/jovyan/venvs/generic/bin/pip install \
-    numpy==1.24.3 \
-    scipy==1.10.1 \
-    matplotlib==3.7.1 \
-    ipykernel
-
-# Install packages in data_analysis environment
-RUN /home/jovyan/venvs/data_analysis/bin/pip install --upgrade pip && \
-    /home/jovyan/venvs/data_analysis/bin/pip install \
-    pandas==2.0.3 \
-    scikit-learn==1.3.0 \
-    seaborn==0.12.2 \
-    matplotlib==3.7.1 \
-    numpy==1.24.3 \
-    scipy==1.10.1 \
-    ipykernel
-
-# Register kernels with Jupyter
-RUN /home/jovyan/venvs/generic/bin/python -m ipykernel install --user --name=generic --display-name="Python (Generic)"
-RUN /home/jovyan/venvs/data_analysis/bin/python -m ipykernel install --user --name=data_analysis --display-name="Python (Data Analysis)"
-
-# Set working directory
 WORKDIR /home/jovyan/work
-
-# Expose port
 EXPOSE 8888
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8888/ || exit 1
-
-# Use the initialization script as the entry point
-CMD ["/usr/local/bin/jupyter-init.sh"]
+CMD ["start-notebook.py", \
+     "--ServerApp.token=", "--ServerApp.password=", \
+     "--ServerApp.base_url=/jupyter/", \
+     "--ServerApp.allow_origin=*", \
+     "--ServerApp.trust_xheaders=True"]

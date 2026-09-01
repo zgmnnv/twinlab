@@ -1,195 +1,158 @@
+# TwinLab — lean business-process digital twin.
+#
+#   docker compose up -d                 core stack (db + twin-service + superset + web)
+#   docker compose --profile reports up   + Superset Alerts & Reports (redis, celery, mailhog)
+#   docker compose --profile notebooks up + Jupyter Lab for ad-hoc analysis
+#
+# Everything talks over the internal network; the nginx gateway is the only
+# entrypoint (http://localhost:8080).
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: ${POSTGRES_USER:-twin}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-twin}
+  POSTGRES_DB: ${POSTGRES_DB:-twin}
+
 services:
   postgres:
-    image: postgres:15-alpine
-    container_name: postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: twinlab-postgres
+    environment: *postgres-env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - twinlab-network
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    networks: [twinlab]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-twin} -d ${POSTGRES_DB:-twin}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - twinlab-network
+  twin-service:
+    build: ./twin-service
+    container_name: twinlab-twin-service
+    environment:
+      TWIN_DATABASE_URL: postgresql://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/${POSTGRES_DB:-twin}
+      TWIN_SEED_DEMO: ${TWIN_SEED_DEMO:-true}
+      TWIN_CORS_ORIGINS: ${TWIN_CORS_ORIGINS:-*}
+    networks: [twinlab]
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   superset:
     build:
       context: .
       dockerfile: docker/superset/Dockerfile.superset
-    container_name: superset
-    ports:
-      - "8088:8088"
-    env_file:
-      - .env
+    container_name: twinlab-superset
     environment:
-      - SUPERSET_CONFIG_PATH=/app/superset_config.py
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      - SMTP_HOST=${SMTP_HOST:-mailhog}
-      - SMTP_PORT=${SMTP_PORT:-1025}
-      - SMTP_STARTTLS=${SMTP_STARTTLS:-false}
-      - SMTP_SSL=${SMTP_SSL:-false}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - SMTP_MAIL_FROM=${SMTP_MAIL_FROM:-noreply@superset.com}
-      - WEBDRIVER_BASEURL=http://superset:8088
-      - WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL=http://superset:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - WEBDRIVER_BASEURL=http://superset:8088
-      - WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me-32-chars-minimum-please-000}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: Admin
+      SUPERSET_ADMIN_LASTNAME: User
+      SUPERSET_ADMIN_EMAIL: admin@twinlab.local
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/superset
+      TWIN_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/${POSTGRES_DB:-twin}
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+      REDIS_URL: ${REDIS_URL:-}
     volumes:
       - superset_home:/app/superset_home
-      - superset_static:/app/superset/static
-      - ./config/superset/superset_config.py:/app/superset_config.py
-    networks:
-      - twinlab-network
+      - ./config/superset/superset_config.py:/app/superset_config.py:ro
+      - ./config/superset/assets:/app/assets:ro
+    networks: [twinlab]
     restart: unless-stopped
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: twinlab-gateway
+    ports:
+      - "${TWINLAB_PORT:-8080}:80"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./webapp:/usr/share/nginx/html:ro
+    networks: [twinlab]
+    restart: unless-stopped
+    depends_on: [twin-service, superset]
+
+  # --- optional: Superset Alerts & Reports -------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: twinlab-redis
+    profiles: [reports]
+    volumes: [redis_data:/data]
+    networks: [twinlab]
+    restart: unless-stopped
 
   celery-worker:
     build:
       context: .
       dockerfile: docker/superset/Dockerfile.superset
-    container_name: celery-worker
+    container_name: twinlab-celery-worker
+    profiles: [reports]
     command: celery --app=superset.tasks.celery_app:app worker --loglevel=info
-    env_file:
-      - .env
     environment:
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - WEBDRIVER_BASEURL=http://superset:8088
-      - WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL=http://superset:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me-32-chars-minimum-please-000}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/superset
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - superset_home:/app/superset_home
-      - superset_static:/app/superset/static
-      - ./config/superset/superset_config.py:/app/superset_config.py
-    networks:
-      - twinlab-network
+      - ./config/superset/superset_config.py:/app/superset_config.py:ro
+    networks: [twinlab]
     restart: unless-stopped
-    depends_on:
-      - redis
-      - postgres
-      - superset
+    depends_on: [redis, postgres, superset]
 
   celery-beat:
     build:
       context: .
       dockerfile: docker/superset/Dockerfile.superset
-    container_name: celery-beat
+    container_name: twinlab-celery-beat
+    profiles: [reports]
     command: celery --app=superset.tasks.celery_app:app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
-    env_file:
-      - .env
     environment:
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - WEBDRIVER_BASEURL=http://superset:8088
-      - WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL=http://superset:8088
-      - ALERT_REPORTS_WEBDRIVER_BASEURL_USER_FRIENDLY=http://localhost:8088
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me-32-chars-minimum-please-000}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/superset
+      SUPERSET_CONFIG_PATH: /app/superset_config.py
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - superset_home:/app/superset_home
-      - superset_static:/app/superset/static
-      - ./config/superset/superset_config.py:/app/superset_config.py
-    networks:
-      - twinlab-network
+      - ./config/superset/superset_config.py:/app/superset_config.py:ro
+    networks: [twinlab]
     restart: unless-stopped
-    depends_on:
-      - redis
-      - postgres
-      - superset
+    depends_on: [redis, postgres, superset]
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: twinlab-mailhog
+    profiles: [reports]
+    networks: [twinlab]
+    restart: unless-stopped
+
+  # --- optional: Jupyter Lab -------------------------------------------------
   jupyter:
     build:
       context: .
       dockerfile: docker/jupyter/Dockerfile.jupyter
-    container_name: jupyter
-    ports:
-      - "8888:8888"
-    env_file:
-      - .env
+    container_name: twinlab-jupyter
+    profiles: [notebooks]
     environment:
-      - NB_UID=1000
-      - NB_GID=1000
+      TWIN_DATABASE_URL: postgresql://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/${POSTGRES_DB:-twin}
     volumes:
       - ./notebooks:/home/jovyan/work
-      - jupyter_static:/home/jovyan/.local/share/jupyter
-    user: "0:0"  # Run as root initially to fix permissions
-    networks:
-      - twinlab-network
+    networks: [twinlab]
     restart: unless-stopped
-
-  webapp:
-    build:
-      context: .
-      dockerfile: docker/webapp/Dockerfile.webapp
-    container_name: webapp
-    ports:
-      - "80:80"
-    networks:
-      - twinlab-network
-    restart: unless-stopped
-
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: mailhog
-    ports:
-      - "1025:1025"  # SMTP port
-      - "8025:8025"  # Web UI port
-    networks:
-      - twinlab-network
-    restart: unless-stopped
+    depends_on: [postgres]
 
 volumes:
-  superset_home:
-  superset_static:
-  jupyter_static:
   postgres_data:
+  superset_home:
   redis_data:
 
 networks:
-  twinlab-network:
+  twinlab:
     driver: bridge

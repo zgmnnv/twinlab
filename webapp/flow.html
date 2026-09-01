@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TwinLab — схема процесса</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#fff; --ink:#1f2430; --muted:#6b7280; --line:#e5e7eb; --accent:#3b5bdb;
+          --ok:#37b24d; --warn:#f59f00; --low:#e03131; --idle:#adb5bd; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#15171c; --card:#1e2128; --ink:#e8eaed; --muted:#9aa0ab; --line:#2b2f38; } }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:1.05rem; font-weight:600; }
+  header a { color:var(--muted); text-decoration:none; font-size:.85rem; }
+  header .live { margin-left:auto; font-size:.8rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .live .dot { width:8px; height:8px; border-radius:50%; background:var(--idle); }
+  .live .dot.on { background:var(--ok); }
+  main { display:flex; flex-wrap:wrap; gap:20px; padding:20px; align-items:flex-start; }
+  .diagram { flex:1 1 620px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px; overflow-x:auto; }
+  svg { display:block; width:100%; min-width:720px; height:auto; }
+  .panel { flex:0 1 300px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .panel h2 { font-size:.95rem; margin-bottom:10px; }
+  .kv { display:flex; justify-content:space-between; font-size:.86rem; padding:4px 0; border-bottom:1px dashed var(--line); }
+  .kv span:last-child { font-variant-numeric:tabular-nums; font-weight:600; }
+  form { margin-top:16px; display:grid; gap:10px; }
+  label { font-size:.8rem; color:var(--muted); display:grid; gap:3px; }
+  input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); }
+  .row { display:flex; gap:8px; }
+  button { font:inherit; padding:8px 12px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:transparent; border:1px solid var(--line); color:var(--ink); }
+  .node-label { font-size:13px; font-weight:600; fill:var(--ink); }
+  .node-metric { font-size:11px; fill:var(--muted); }
+  .edge-label { font-size:11px; fill:var(--muted); }
+  .edge-line { stroke:var(--idle); stroke-width:2; fill:none; }
+  .edge-line.active { stroke:var(--accent); stroke-dasharray:6 6; animation:dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset:-24; } }
+  .flow-dot { fill:var(--accent); }
+  .hint { font-size:.78rem; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="twinName">Схема процесса</h1>
+  <a href="index.html">← ко всем сервисам</a>
+  <span class="live"><span class="dot" id="liveDot"></span><span id="liveText">офлайн</span></span>
+</header>
+
+<main>
+  <div class="diagram"><svg id="svg" viewBox="0 0 1040 260" role="img" aria-label="Схема бизнес-процесса"></svg></div>
+
+  <div class="panel">
+    <h2>Активный план</h2>
+    <div id="planKv"></div>
+
+    <form id="whatif">
+      <h2 style="margin-top:6px">Что если…</h2>
+      <div class="row">
+        <label>Горизонт, дней<input type="number" name="forecast_days" min="1" max="60" value="7"></label>
+        <label>Пик-фактор<input type="number" name="weekend_factor" step="0.5" min="1" value="3"></label>
+      </div>
+      <label>Страховой запас (доля)<input type="number" name="safety_factor" step="0.05" min="0" max="1" value="0.2"></label>
+      <div class="row">
+        <button type="submit">Пересчитать</button>
+        <button type="button" class="secondary" id="applyBtn">Применить план</button>
+      </div>
+      <div class="hint" id="whatifHint">Пересчёт не меняет активный план, пока вы не нажали «Применить».</div>
+    </form>
+  </div>
+</main>
+
+<script>
+const API = "api";
+const params = new URLSearchParams(location.search);
+let twinId = params.get("twin");
+let lastPreview = null;
+
+const $ = sel => document.querySelector(sel);
+const num = v => (typeof v === "number" ? (Math.round(v * 100) / 100).toLocaleString("ru-RU") : v ?? "—");
+
+const METRIC_LABELS = {
+  required_production: "Требуемое производство",
+  forecast_stock: "Прогнозный спрос",
+  safety_stock: "Страховой запас",
+  daily_avg_consumption: "Средний расход/день",
+  current_stock: "Текущий остаток",
+  ingredients_total: "Сырьё, всего",
+};
+
+async function pickTwin() {
+  if (twinId) return twinId;
+  const twins = await fetch(`${API}/twins`).then(r => r.json());
+  if (!twins.length) throw new Error("нет ни одного двойника");
+  twinId = twins[0].id;
+  return twinId;
+}
+
+function nodeCenter(n) { return { x: n.x + 75, y: n.y + 40 }; }
+
+function render(flow) {
+  const svg = $("#svg");
+  svg.innerHTML = "";
+  const ns = "http://www.w3.org/2000/svg";
+  const byId = Object.fromEntries(flow.nodes.map(n => [n.id, n]));
+  const colors = { ok: "var(--ok)", warn: "var(--warn)", low: "var(--low)" };
+
+  for (const e of flow.edges) {
+    const a = nodeCenter(byId[e.from]), b = nodeCenter(byId[e.to]);
+    const x1 = a.x + 75, x2 = b.x - 75;
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", `M ${x1} ${a.y} L ${x2} ${b.y}`);
+    path.setAttribute("class", "edge-line" + (e.active ? " active" : ""));
+    path.setAttribute("marker-end", "url(#arrow)");
+    svg.appendChild(path);
+    if (e.label) {
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", (x1 + x2) / 2); t.setAttribute("y", a.y - 8);
+      t.setAttribute("text-anchor", "middle"); t.setAttribute("class", "edge-label");
+      t.textContent = e.label;
+      svg.appendChild(t);
+    }
+    if (e.active) {
+      const dot = document.createElementNS(ns, "circle");
+      dot.setAttribute("r", "4"); dot.setAttribute("class", "flow-dot");
+      const anim = document.createElementNS(ns, "animateMotion");
+      anim.setAttribute("dur", "2s"); anim.setAttribute("repeatCount", "indefinite");
+      anim.setAttribute("path", `M ${x1} ${a.y} L ${x2} ${b.y}`);
+      dot.appendChild(anim);
+      svg.appendChild(dot);
+    }
+  }
+
+  for (const n of flow.nodes) {
+    const g = document.createElementNS(ns, "g");
+    const rect = document.createElementNS(ns, "rect");
+    rect.setAttribute("x", n.x); rect.setAttribute("y", n.y);
+    rect.setAttribute("width", "150"); rect.setAttribute("height", "80");
+    rect.setAttribute("rx", "10");
+    rect.setAttribute("fill", "var(--card)");
+    rect.setAttribute("stroke", colors[n.status] || "var(--idle)");
+    rect.setAttribute("stroke-width", "2.5");
+    g.appendChild(rect);
+
+    const label = document.createElementNS(ns, "text");
+    label.setAttribute("x", n.x + 75); label.setAttribute("y", n.y + 24);
+    label.setAttribute("text-anchor", "middle"); label.setAttribute("class", "node-label");
+    label.textContent = n.label;
+    g.appendChild(label);
+
+    (Object.entries(n.metrics || {})).slice(0, 2).forEach(([k, v], i) => {
+      const m = document.createElementNS(ns, "text");
+      m.setAttribute("x", n.x + 75); m.setAttribute("y", n.y + 44 + i * 15);
+      m.setAttribute("text-anchor", "middle"); m.setAttribute("class", "node-metric");
+      m.textContent = `${METRIC_LABELS[k] || k}: ${num(v)}`;
+      g.appendChild(m);
+    });
+    svg.appendChild(g);
+  }
+
+  const defs = document.createElementNS(ns, "defs");
+  defs.innerHTML = `<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--idle)"/></marker>`;
+  svg.appendChild(defs);
+
+  const maxX = Math.max(...flow.nodes.map(n => n.x)) + 170;
+  const maxY = Math.max(...flow.nodes.map(n => n.y)) + 110;
+  svg.setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
+}
+
+function renderPlan(metrics) {
+  $("#planKv").innerHTML = Object.entries(metrics)
+    .map(([k, v]) => `<div class="kv"><span>${METRIC_LABELS[k] || k}</span><span>${num(v)}</span></div>`)
+    .join("") || '<div class="hint">Плана ещё нет.</div>';
+}
+
+async function refresh() {
+  const flow = await fetch(`${API}/twins/${twinId}/flow`).then(r => r.json());
+  render(flow);
+  renderPlan(flow.metrics || {});
+  const twin = await fetch(`${API}/twins/${twinId}`).then(r => r.json());
+  $("#twinName").textContent = twin.name || twinId;
+}
+
+function connectWs() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/${API}/twins/${twinId}/ws`);
+  const dot = $("#liveDot"), text = $("#liveText");
+  ws.onopen = () => { dot.classList.add("on"); text.textContent = "в реальном времени"; };
+  ws.onclose = () => { dot.classList.remove("on"); text.textContent = "переподключение…"; setTimeout(connectWs, 3000); };
+  ws.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.event === "flow") { render(msg.flow); renderPlan(msg.flow.metrics || {}); }
+    else refresh();
+  };
+}
+
+$("#whatif").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const fd = new FormData(ev.target);
+  const body = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, Number(v)]));
+  lastPreview = await fetch(`${API}/twins/${twinId}/plan`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then(r => r.json());
+  renderPlan({ ...lastPreview.result, ingredients_total: round2(sum(lastPreview.result.ingredients)) });
+  $("#whatifHint").textContent = "Предпросмотр. Нажмите «Применить план», чтобы зафиксировать.";
+});
+
+$("#applyBtn").addEventListener("click", async () => {
+  const fd = new FormData($("#whatif"));
+  const body = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, Number(v)]));
+  await fetch(`${API}/twins/${twinId}/plan?activate=true`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  $("#whatifHint").textContent = "План применён.";
+  refresh();
+});
+
+const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
+const round2 = v => Math.round(v * 100) / 100;
+
+(async () => {
+  try {
+    await pickTwin();
+    await refresh();
+    connectWs();
+    setInterval(() => { if ($("#liveDot").classList.contains("on") === false) refresh(); }, 5000);
+  } catch (e) {
+    document.querySelector("main").innerHTML = `<div class="panel">Не удалось загрузить двойник: ${e.message}<br><br>Запущен ли <code>twin-service</code>?</div>`;
+  }
+})();
+</script>
+</body>
+</html>
