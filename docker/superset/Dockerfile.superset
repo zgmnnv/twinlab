@@ -2,13 +2,13 @@ FROM apache/superset:5.0.0
 
 USER root
 
-# Drivers for the twin database (PostgreSQL / TimescaleDB) plus xlsx export.
-# No headless browser: Alerts & Reports run in TEXT mode (see superset_config.py).
+# Driver for the twin database (PostgreSQL / TimescaleDB) plus xlsx export.
+# No headless browser and no gevent build — the server runs gthread workers
+# and Alerts & Reports run in TEXT mode (see superset_config.py).
 RUN . /app/.venv/bin/activate && \
     uv pip install \
       psycopg2-binary \
-      openpyxl \
-      "gevent>=1.4.0"
+      openpyxl
 
 COPY scripts/superset-init.sh /app/superset-init.sh
 RUN sed -i 's/\r$//' /app/superset-init.sh && chmod +x /app/superset-init.sh

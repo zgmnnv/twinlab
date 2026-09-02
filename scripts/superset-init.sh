@@ -21,6 +21,7 @@ if [ -n "${TWIN_DATABASE_URI}" ]; then
 fi
 
 echo "✅ Superset ready. Starting server..."
-exec gunicorn -w "${SUPERSET_WORKERS:-4}" -k gevent --timeout 300 \
+# gthread workers: no gevent C-extension build needed in the slim base image.
+exec gunicorn -w "${SUPERSET_WORKERS:-4}" -k gthread --threads 4 --timeout 300 \
     --bind 0.0.0.0:8088 --forwarded-allow-ips='*' \
     'superset.app:create_app()'

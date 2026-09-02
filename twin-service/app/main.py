@@ -149,15 +149,20 @@ async def run_plan(
         raise HTTPException(409, "no movement history — ingest a CSV first")
     merged = _merge_params(twin, params)
     result = plan_production(rows, merged)
-    plan = await store.save_plan(twin_id, merged, result, activate)
-    if activate:
-        await store.patch_state(
-            twin_id,
-            {"stock": result["current_stock"],
-             "status": "ok" if result["stock_ok"] else "low"},
-        )
-        await store.add_event(twin_id, "plan.activated", {"plan_id": plan["id"]})
-        await _publish(twin_id, {"event": "plan", "plan": plan})
+
+    # A what-if preview is not persisted; only ?activate=true writes a plan row
+    # and moves the twin state.
+    if not activate:
+        return {"active": False, "params": merged, "result": result}
+
+    plan = await store.save_plan(twin_id, merged, result, activate=True)
+    await store.patch_state(
+        twin_id,
+        {"stock": result["current_stock"],
+         "status": "ok" if result["stock_ok"] else "low"},
+    )
+    await store.add_event(twin_id, "plan.activated", {"plan_id": plan["id"]})
+    await _publish(twin_id, {"event": "plan", "plan": plan})
     return plan
 
 

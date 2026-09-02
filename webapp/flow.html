@@ -166,10 +166,22 @@ function render(flow) {
   svg.setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
 }
 
+const PLAN_KEYS = ["required_production", "forecast_stock", "safety_stock",
+                   "daily_avg_consumption", "current_stock", "ingredients_total"];
+
+function planMetrics(result) {
+  const m = {};
+  for (const k of PLAN_KEYS) if (typeof result[k] === "number") m[k] = result[k];
+  if (result.ingredients && m.ingredients_total === undefined)
+    m.ingredients_total = round2(sum(result.ingredients));
+  return m;
+}
+
 function renderPlan(metrics) {
-  $("#planKv").innerHTML = Object.entries(metrics)
-    .map(([k, v]) => `<div class="kv"><span>${METRIC_LABELS[k] || k}</span><span>${num(v)}</span></div>`)
-    .join("") || '<div class="hint">Плана ещё нет.</div>';
+  const rows = PLAN_KEYS.filter(k => k in metrics)
+    .map(k => `<div class="kv"><span>${METRIC_LABELS[k] || k}</span><span>${num(metrics[k])}</span></div>`)
+    .join("");
+  $("#planKv").innerHTML = rows || '<div class="hint">Плана ещё нет.</div>';
 }
 
 async function refresh() {
@@ -200,7 +212,7 @@ $("#whatif").addEventListener("submit", async ev => {
   lastPreview = await fetch(`${API}/twins/${twinId}/plan`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   }).then(r => r.json());
-  renderPlan({ ...lastPreview.result, ingredients_total: round2(sum(lastPreview.result.ingredients)) });
+  renderPlan(planMetrics(lastPreview.result));
   $("#whatifHint").textContent = "Предпросмотр. Нажмите «Применить план», чтобы зафиксировать.";
 });
 

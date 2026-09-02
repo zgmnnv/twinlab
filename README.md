@@ -10,6 +10,9 @@ Ditto, Hono, Kafka, MQTT, InfluxDB, Grafana, MongoDB и 3D.
 > [`deploy/legacy-opentwins-k8s/`](deploy/legacy-opentwins-k8s/) — она нужна
 > только для device-scale IoT, мультитенантности Ditto или 3D-сцен.
 
+> **Ветка `lean-version` — прототип в работе.** Что уже сделано и что осталось —
+> в [`docs/lean-version-status.md`](docs/lean-version-status.md).
+
 ## Быстрый старт
 
 ```bash
