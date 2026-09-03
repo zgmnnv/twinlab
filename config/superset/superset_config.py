@@ -84,7 +84,8 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_MAIL_FROM = os.environ.get("SMTP_MAIL_FROM", "twinlab@localhost")
 WEBDRIVER_BASEURL = "http://superset:8088/"
 WEBDRIVER_BASEURL_USER_FRIENDLY = os.environ.get(
-    "SUPERSET_PUBLIC_URL", "http://localhost:8080/analytics/"
+    "SUPERSET_PUBLIC_URL", "http://localhost:8088/"
 )
+CONTENT_SECURITY_POLICY_WARNING = False
 
 LOG_LEVEL = os.environ.get("SUPERSET_LOG_LEVEL", "INFO")

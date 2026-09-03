@@ -15,7 +15,7 @@ from fastapi import Body, FastAPI, HTTPException, Query, Request, WebSocket, Web
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config, db, store
-from .calculations import plan_production
+from .calculations import get_calculator
 from .flow import derive_flow
 from .ingest import parse_movements
 from .seed import seed_demo
@@ -150,11 +150,14 @@ async def run_plan(
     activate: bool = Query(False),
 ):
     twin = await _require_twin(twin_id)
+    calculator = get_calculator(twin["kind"])
+    if calculator is None:
+        raise HTTPException(422, f"no calculator registered for kind '{twin['kind']}'")
     rows = await store.load_movements(twin_id)
     if not rows:
         raise HTTPException(409, "no movement history — ingest a CSV first")
     merged = _merge_params(twin, params)
-    result = plan_production(rows, merged)
+    result = calculator(rows, merged)
 
     # A what-if preview is not persisted; only ?activate=true writes a plan row
     # and moves the twin state.

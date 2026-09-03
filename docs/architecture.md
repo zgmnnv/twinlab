@@ -34,8 +34,9 @@ flowchart LR
     FLOW <-->|"REST + WebSocket"| TS
     SUP -->|"SQL"| PG
     NGINX["nginx gateway :8080"] --- FLOW
-    NGINX --- SUP
     NGINX --- TS
+    USER(("браузер")) --- NGINX
+    USER -->|":8088"| SUP
 ```
 
 | Контейнер | Образ | Роль |
@@ -43,7 +44,7 @@ flowchart LR
 | `postgres` | `timescale/timescaledb:2.17.2-pg16` | единое хранилище: домен-модель двойника + временные ряды + continuous aggregate для KPI. Отдельная БД `superset` для метаданных Superset. |
 | `twin-service` | `./twin-service` (Python 3.12) | REST + WebSocket API, модель состояния, расчёты, планы, what-if, события. Заменяет Ditto + Hono + Kafka + MQTT-publisher. |
 | `superset` | `apache/superset:5.0.0` (+psycopg2) | единственный BI-инструмент, читает `twin` напрямую. Без headless-браузера. |
-| `gateway` | `nginx:1.27-alpine` | единая точка входа `:8080`, отдаёт `webapp/` и проксирует `/api/`, `/analytics/`, `/jupyter/`. |
+| `gateway` | `nginx:1.27-alpine` | точка входа `:8080` — отдаёт `webapp/`, проксирует `/api/` (twin-service) и `/jupyter/`. Superset публикуется отдельно на `:8088` (его SPA грузит ассеты из `/static` в корне и конфликтует с gateway). |
 
 Опционально:
 - `--profile reports` → `redis` + `celery-worker` + `celery-beat` + `mailhog` для Superset Alerts & Reports;

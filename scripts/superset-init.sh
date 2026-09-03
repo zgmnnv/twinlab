@@ -21,6 +21,12 @@ if [ -n "${TWIN_DATABASE_URI}" ]; then
 fi
 
 echo "✅ Superset ready. Starting server..."
+
+# Provision the reference dashboard once the API is up (idempotent, non-fatal).
+if [ -f /app/bootstrap_assets.py ] && [ "${TWINLAB_BOOTSTRAP_DASHBOARD:-true}" = "true" ]; then
+    ( python /app/bootstrap_assets.py || true ) &
+fi
+
 # gthread workers: no gevent C-extension build needed in the slim base image.
 exec gunicorn -w "${SUPERSET_WORKERS:-4}" -k gthread --threads 4 --timeout 300 \
     --bind 0.0.0.0:8088 --forwarded-allow-ips='*' \

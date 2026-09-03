@@ -74,3 +74,39 @@ SELECT add_continuous_aggregate_policy('measurement_daily',
        end_offset        => INTERVAL '1 hour',
        schedule_interval => INTERVAL '1 hour',
        if_not_exists     => TRUE);
+
+-- Flat views for BI (Superset builds datasets on these, not on jsonb).
+
+CREATE OR REPLACE VIEW v_daily AS
+SELECT twin_id,
+       day::date AS day,
+       metric,
+       last_value,
+       avg_value,
+       min_value,
+       max_value
+FROM measurement_daily;
+
+CREATE OR REPLACE VIEW v_active_plan AS
+SELECT twin_id,
+       created_at,
+       (result ->> 'daily_avg_consumption')::float AS daily_avg_consumption,
+       (result ->> 'forecast_stock')::float        AS forecast_stock,
+       (result ->> 'safety_stock')::float          AS safety_stock,
+       (result ->> 'current_stock')::float         AS current_stock,
+       (result ->> 'required_production')::float   AS required_production,
+       (result ->> 'stock_ok')::boolean            AS stock_ok
+FROM plan
+WHERE active;
+
+CREATE OR REPLACE VIEW v_plan_history AS
+SELECT twin_id,
+       id,
+       created_at,
+       active,
+       (params ->> 'forecast_days')::int          AS forecast_days,
+       (params ->> 'weekend_factor')::float       AS weekend_factor,
+       (params ->> 'safety_factor')::float        AS safety_factor,
+       (result ->> 'required_production')::float  AS required_production,
+       (result ->> 'forecast_stock')::float       AS forecast_stock
+FROM plan;

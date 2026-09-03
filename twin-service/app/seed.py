@@ -5,7 +5,7 @@ import json
 import pathlib
 
 from . import store
-from .calculations import plan_production
+from .calculations import get_calculator
 from .ingest import parse_movements
 
 SEED_DIR = pathlib.Path(__file__).with_name("seed")
@@ -31,7 +31,7 @@ async def seed_demo() -> None:
     # Plan from the day-grouped movements, exactly as POST /plan would.
     daily = await store.load_movements(twin["id"])
     params = spec["config"].get("plan_defaults", {})
-    result = plan_production(daily, params)
+    result = get_calculator(twin["kind"])(daily, params)
     await store.save_plan(twin["id"], params, result, activate=True)
     await store.patch_state(
         twin["id"],

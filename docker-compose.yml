@@ -52,6 +52,8 @@ services:
       context: .
       dockerfile: docker/superset/Dockerfile.superset
     container_name: twinlab-superset
+    ports:
+      - "${SUPERSET_PORT:-8088}:8088"
     environment:
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me-32-chars-minimum-please-000}
       SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
@@ -62,11 +64,11 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/superset
       TWIN_DATABASE_URI: postgresql+psycopg2://${POSTGRES_USER:-twin}:${POSTGRES_PASSWORD:-twin}@postgres:5432/${POSTGRES_DB:-twin}
       SUPERSET_CONFIG_PATH: /app/superset_config.py
+      SUPERSET_PUBLIC_URL: ${SUPERSET_PUBLIC_URL:-http://localhost:8088/}
       REDIS_URL: ${REDIS_URL:-}
     volumes:
       - superset_home:/app/superset_home
       - ./config/superset/superset_config.py:/app/superset_config.py:ro
-      - ./config/superset/assets:/app/assets:ro
     networks: [twinlab]
     restart: unless-stopped
     depends_on:

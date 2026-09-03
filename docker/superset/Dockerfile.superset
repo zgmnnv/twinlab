@@ -11,6 +11,7 @@ RUN . /app/.venv/bin/activate && \
       openpyxl
 
 COPY scripts/superset-init.sh /app/superset-init.sh
+COPY config/superset/bootstrap_assets.py /app/bootstrap_assets.py
 RUN sed -i 's/\r$//' /app/superset-init.sh && chmod +x /app/superset-init.sh
 
 USER superset

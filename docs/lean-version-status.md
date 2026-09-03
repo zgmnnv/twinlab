@@ -11,12 +11,12 @@
   `postgres` (TimescaleDB) · `twin-service` (FastAPI) · `superset` · `gateway` (nginx).
 - Опциональные профили: `--profile reports` (Redis + Celery + MailHog для
   Superset Alerts & Reports), `--profile notebooks` (Jupyter Lab).
-- Единая точка входа — `http://localhost:8080` (nginx проксирует
-  `/api`, `/analytics`, `/jupyter`, отдаёт `webapp/`).
+- Точка входа `http://localhost:8080` (nginx: `webapp/` + `/api` + `/jupyter`);
+  Superset — отдельно на `http://localhost:8088`.
 - Старый стек OpenTwins на Kubernetes перенесён в
   `deploy/legacy-opentwins-k8s/` (только для справки).
 - **Проверено локально:** `docker compose up --build` поднимает весь стек,
-  все контейнеры healthy, Superset отвечает на `/analytics/health`.
+  все контейнеры healthy, дашборд Superset рендерится.
 
 ### twin-service (ядро двойника)
 - FastAPI + asyncpg, схема БД применяется на старте (`app/schema.sql`).
@@ -75,26 +75,45 @@
   `condition: service_healthy`.
 - **`GET /api/twins/{id}/events`** — журнал событий процесса.
 
+## Сделано (третий заход — дашборд и целостность)
+
+- **Эталонный дашборд Superset (шаг 6 плана).** `config/superset/bootstrap_assets.py`
+  идемпотентно поднимает через REST API: подключение к БД `twin`, 3 датасета
+  на вьюхах (`v_daily`, `v_active_plan`, `v_plan_history`), 5 графиков
+  (остаток по дням, расход по дням, требуемое производство — big number,
+  текущий/страховой запас, таблица истории планов) и дашборд
+  `twinlab-tincture`. Запускается фоном из `superset-init.sh`.
+  **Проверено в браузере:** дашборд рендерит все 5 плиток с данными.
+- **Плоские вьюхи для BI** в `schema.sql` — Superset строит датасеты на них,
+  а не на `jsonb`.
+- **Superset вынесен на свой порт `:8088`.** Под префиксом `/analytics/`
+  его SPA грузила ассеты из `/static` в корне gateway → MIME-конфликт,
+  белый экран. Прокси `/analytics/` убран, `webapp` линкует напрямую на
+  `SUPERSET_PUBLIC_URL`. **Проверено:** логин, SPA, графики работают.
+- **Диспетч расчётов по `twin.kind`** (`calculations.get_calculator`).
+  Неизвестный kind → `422`. Seed и `/plan` идут одним путём.
+- **`notebooks/`**: `test.ipynb` переведён на kernel `python3`; добавлен
+  `twin_explore.ipynb` — подключение к БД `twin` + графики остатка/расхода.
+- **Устранена рассинхронизация seed vs API**: seed теперь тоже считает план
+  по сгруппированным по дням движениям (`load_movements`).
+- **`POST /ingest`** читает сырое `text/csv`-тело; `send_plan.py` прогнан
+  end-to-end.
+- `CONTENT_SECURITY_POLICY_WARNING = False` — убран шумный варнинг Superset.
+
 ## Надо сделать
 
 ### Ближайшее
-- [ ] Прогнать `examples/tincture/send_plan.py` против живого стека
-  (клиент готов, end-to-end ещё не гонял).
-- [ ] Эталонный дашборд Superset поверх БД `twin` (шаг 6 плана): временные
-  ряды `stock`/`outflow` из `measurement_daily`, KPI-плитки из активного
-  плана, таблица истории планов. Сейчас регистрируется только подключение.
-- [ ] Проверить Superset под префиксом `/analytics/` целиком (логин,
-  статика, Explore) — базовый `/health` отвечает, полный UI не гонял.
-- [ ] `notebooks/test.ipynb` ссылается на несуществующий kernel
-  `data_analysis` → перевести на `python3` + стартовый ноутбук с БД.
+- [ ] Дашборд: график «текущий/страховой запас» сейчас timeseries-bar с
+  растянутой осью X — заменить на обычный bar/`echarts_bar`.
+- [ ] Экспортировать дашборд как assets-ZIP и коммитить его — как запасной
+  путь к REST-бутстрапу (устойчивее к смене версии Superset).
+- [ ] Валидация `kind` при `POST /api/twins` (сейчас 422 только на `/plan`).
 - [ ] Разово наблюдалось: посторонний клиент завалил `POST /plan` во время
   seed → гонка в `load_movements`. Не воспроизвелось после чистой
   пересборки; смягчено тем, что preview больше не пишет. Если повторится —
   startup-lock на seed.
 
 ### Двойник
-- [ ] Диспетчеризация расчётов по `twin.kind` в обработчике `/plan`
-  (сейчас всегда `plan_production`).
 - [ ] Планировщик: периодический пересчёт активного плана при новых данных
   (сейчас только по запросу).
 - [ ] Правила/алерты: событие при расхождении план/факт больше порога
@@ -103,8 +122,6 @@
 - [ ] Пагинация/ретенция для `event` и `twin_state_history`.
 
 ### Инфраструктура
-- [ ] Healthcheck и `depends_on: condition: service_healthy` для
-  `twin-service` в compose (образ healthcheck есть, в compose не связан).
 - [ ] Alembic вместо применения `schema.sql` на старте — когда схема
   начнёт меняться.
 - [ ] Прод-профиль: TLS на gateway, секреты, закрыть порт Postgres.
@@ -116,7 +133,8 @@
 ```bash
 cp .env.example .env      # заменить пароли и SUPERSET_SECRET_KEY
 docker compose up -d --build
-open http://localhost:8080/flow.html
+open http://localhost:8080/flow.html                       # 2D-схема процесса
+open http://localhost:8088/superset/dashboard/twinlab-tincture/   # дашборд
 ```
 
 Тесты бизнес-логики:

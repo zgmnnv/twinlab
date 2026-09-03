@@ -35,11 +35,14 @@
 </div>
 
 <script>
+// Superset runs on its own port; override here if you changed SUPERSET_PORT.
+const SUPERSET_URL = `${location.protocol}//${location.hostname}:8088/`;
+
 const SERVICES = [
-  { title: "Схема процесса",   href: "flow.html",     desc: "Живой 2D-поток двойника",        primary: true,  probe: "api/twins" },
-  { title: "Apache Superset",  href: "analytics/",    desc: "Дашборды и аналитика",           probe: "analytics/health" },
-  { title: "API двойника",     href: "api/docs",      desc: "REST + WebSocket (OpenAPI)",     probe: "api/health" },
-  { title: "Jupyter Lab",      href: "jupyter/",      desc: "Ad-hoc анализ (профиль notebooks)", probe: "jupyter/api" },
+  { title: "Схема процесса",   href: "flow.html",   desc: "Живой 2D-поток двойника",           primary: true, probe: "api/twins" },
+  { title: "Apache Superset",  href: SUPERSET_URL,  desc: "Дашборды и аналитика",              probe: SUPERSET_URL, noCors: true },
+  { title: "API двойника",     href: "api/docs",    desc: "REST + WebSocket (OpenAPI)",        probe: "api/health" },
+  { title: "Jupyter Lab",      href: "jupyter/",    desc: "Ad-hoc анализ (профиль notebooks)", probe: "jupyter/api" },
 ];
 
 const grid = document.getElementById("grid");
@@ -47,6 +50,7 @@ for (const s of SERVICES) {
   const a = document.createElement("a");
   a.className = "card" + (s.primary ? " primary" : "");
   a.href = s.href;
+  if (s.href === SUPERSET_URL) a.target = "_blank";
   a.innerHTML = `<h2>${s.title}</h2><span>${s.desc}</span>`;
   grid.appendChild(a);
 }
@@ -54,8 +58,10 @@ for (const s of SERVICES) {
 (async () => {
   let ok = 0;
   await Promise.all(SERVICES.map(async s => {
-    try { const r = await fetch(s.probe, { method: "GET" }); if (r.ok || r.status === 401 || r.status === 403) ok++; }
-    catch (_) {}
+    try {
+      const r = await fetch(s.probe, s.noCors ? { mode: "no-cors" } : {});
+      if (s.noCors || r.ok || r.status === 401 || r.status === 403) ok++;
+    } catch (_) {}
   }));
   const dot = document.getElementById("dot"), txt = document.getElementById("statusText");
   if (ok === SERVICES.length) { dot.className = "dot up"; txt.textContent = "Все сервисы отвечают"; }

@@ -25,11 +25,13 @@ docker compose up -d --build
 |---|---|
 | http://localhost:8080 | навигатор по сервисам |
 | http://localhost:8080/flow.html | живая 2D-схема процесса |
-| http://localhost:8080/analytics/ | Apache Superset (логин из `.env`) |
 | http://localhost:8080/api/docs | OpenAPI twin-service |
+| http://localhost:8088 | Apache Superset (логин из `.env`) |
+| http://localhost:8088/superset/dashboard/twinlab-tincture/ | эталонный дашборд |
 
 При первом старте создаётся демо-двойник `tincture_ulun` (планирование
-производства настойки) с загруженной историей и активным планом.
+производства настойки) с загруженной историей и активным планом, а в
+Superset — датасеты и дашборд поверх БД двойника.
 
 Опциональные профили:
 
