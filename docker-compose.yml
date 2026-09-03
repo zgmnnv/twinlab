@@ -37,6 +37,12 @@ services:
       TWIN_CORS_ORIGINS: ${TWIN_CORS_ORIGINS:-*}
     networks: [twinlab]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,7 +83,11 @@ services:
       - ./webapp:/usr/share/nginx/html:ro
     networks: [twinlab]
     restart: unless-stopped
-    depends_on: [twin-service, superset]
+    depends_on:
+      twin-service:
+        condition: service_healthy
+      superset:
+        condition: service_started
 
   # --- optional: Superset Alerts & Reports -------------------------------
   redis:

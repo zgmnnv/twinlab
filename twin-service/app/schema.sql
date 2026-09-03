@@ -68,3 +68,9 @@ SELECT twin_id,
 FROM measurement
 GROUP BY twin_id, metric, day
 WITH NO DATA;
+
+SELECT add_continuous_aggregate_policy('measurement_daily',
+       start_offset      => INTERVAL '30 days',
+       end_offset        => INTERVAL '1 hour',
+       schedule_interval => INTERVAL '1 hour',
+       if_not_exists     => TRUE);

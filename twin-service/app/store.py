@@ -205,6 +205,33 @@ async def add_event(twin_id: str, type_: str, payload: dict) -> None:
     )
 
 
+async def list_events(twin_id: str, limit: int = 50) -> list[dict]:
+    rows = await pool().fetch(
+        "SELECT ts, type, payload FROM event WHERE twin_id = $1 "
+        "ORDER BY ts DESC LIMIT $2",
+        twin_id, limit,
+    )
+    import json
+    return [
+        {
+            "ts": r["ts"].isoformat(),
+            "type": r["type"],
+            "payload": json.loads(r["payload"]) if isinstance(r["payload"], str) else r["payload"],
+        }
+        for r in rows
+    ]
+
+
+async def refresh_daily_agg() -> None:
+    """Materialise measurement_daily over its full range (safe to call often)."""
+    try:
+        await pool().execute(
+            "CALL refresh_continuous_aggregate('measurement_daily', NULL, NULL)"
+        )
+    except Exception:  # noqa: BLE001 - best effort; the hourly policy is the backstop
+        pass
+
+
 async def twin_count() -> int:
     return await pool().fetchval("SELECT count(*) FROM twin")
 

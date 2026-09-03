@@ -11,7 +11,7 @@ import asyncio
 import contextlib
 from collections import defaultdict
 
-from fastapi import Body, FastAPI, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config, db, store
@@ -113,26 +113,32 @@ async def get_history(
 async def post_measurements(twin_id: str, samples: list[dict] = Body(...)):
     await _require_twin(twin_id)
     count = await store.add_measurements(twin_id, samples)
+    await store.refresh_daily_agg()
     return {"ingested": count}
 
 
 @app.post("/api/twins/{twin_id}/ingest")
-async def ingest_csv(
-    twin_id: str,
-    file: UploadFile | None = None,
-    body: str | None = Body(None, media_type="text/csv"),
-):
+async def ingest_csv(twin_id: str, request: Request):
+    """Accept a movement CSV either as a multipart file upload or a raw
+    text/csv request body."""
     twin = await _require_twin(twin_id)
-    if file is not None:
-        text = (await file.read()).decode("utf-8-sig")
-    elif body:
-        text = body
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None:
+            raise HTTPException(422, "multipart body must include a 'file' field")
+        text = (await upload.read()).decode("utf-8-sig")
     else:
-        raise HTTPException(422, "provide a CSV file upload or a text/csv body")
+        raw = await request.body()
+        if not raw:
+            raise HTTPException(422, "provide a CSV file upload or a text/csv body")
+        text = raw.decode("utf-8-sig")
     rows = parse_movements(text, (twin.get("config") or {}).get("ingest"))
     if not rows:
         raise HTTPException(422, "no valid movement rows found")
     count = await store.replace_movements(twin_id, rows)
+    await store.refresh_daily_agg()
     await store.add_event(twin_id, "ingested", {"movements": count})
     return {"movements": count, "first": rows[0]["date"], "last": rows[-1]["date"]}
 
@@ -173,6 +179,12 @@ async def get_plan(twin_id: str):
         "active": await store.active_plan(twin_id),
         "history": await store.list_plans(twin_id),
     }
+
+
+@app.get("/api/twins/{twin_id}/events")
+async def get_events(twin_id: str, limit: int = Query(50, ge=1, le=500)):
+    await _require_twin(twin_id)
+    return await store.list_events(twin_id, limit)
 
 
 @app.get("/api/twins/{twin_id}/flow")

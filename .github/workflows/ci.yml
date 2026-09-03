@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, lean-version]
+  pull_request:
+
+jobs:
+  twin-service-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r twin-service/requirements.txt pytest
+      - name: Run unit tests
+        working-directory: twin-service
+        run: python -m pytest -q
+
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: |
+          cp .env.example .env
+          docker compose config -q
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [twin-service-tests, compose-config]
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/lean-version'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          cp .env.example .env
+          docker compose build

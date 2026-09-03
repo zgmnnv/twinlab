@@ -59,22 +59,38 @@
   pipeline (тесты + `compose config` + build) вместо пустого шаблона.
 - Удалён устаревший `schema.png` (источник — mermaid в `docs/architecture.md`).
 
+## Сделано (второй заход — быстрые правки)
+
+- **CI переехал на GitHub Actions** (`.github/workflows/ci.yml`): pytest +
+  `docker compose config` + build. `.gitlab-ci.yml` на GitHub не запускался.
+- **Корневой `.dockerignore`** — контекст сборки Superset больше не тащит
+  `.git`, `deploy/`, `notebooks/`, `twin-service/`.
+- **`measurement_daily`** получил refresh-policy + принудительный
+  `refresh_continuous_aggregate` при `seed`/`ingest`/`measurements`.
+  Проверено: 29 дней × 3 метрики materialized после старта.
+- **What-if больше не плодит строки `plan`.** `POST /plan` без
+  `?activate=true` — чистый расчёт. Проверено на чистой БД: история
+  планов остаётся = 1 после серии preview-запросов.
+- **Healthcheck `twin-service`** подключён в compose; `gateway` ждёт
+  `condition: service_healthy`.
+- **`GET /api/twins/{id}/events`** — журнал событий процесса.
+
 ## Надо сделать
 
 ### Ближайшее
-- [ ] **What-if не должен плодить строки `plan`.** Исправлено в коде
-  (`POST /plan` без `?activate=true` теперь только считает, не пишет) —
-  нужно пересобрать образ и перепроверить на чистой БД (`docker compose
-  down -v && up`).
 - [ ] Прогнать `examples/tincture/send_plan.py` против живого стека
   (клиент готов, end-to-end ещё не гонял).
 - [ ] Эталонный дашборд Superset поверх БД `twin` (шаг 6 плана): временные
-  ряды `stock`/`outflow`, KPI-плитки из активного плана, таблица истории
-  планов. Сейчас регистрируется только подключение к БД.
+  ряды `stock`/`outflow` из `measurement_daily`, KPI-плитки из активного
+  плана, таблица истории планов. Сейчас регистрируется только подключение.
 - [ ] Проверить Superset под префиксом `/analytics/` целиком (логин,
   статика, Explore) — базовый `/health` отвечает, полный UI не гонял.
 - [ ] `notebooks/test.ipynb` ссылается на несуществующий kernel
-  `data_analysis` → переkey на `python3`.
+  `data_analysis` → перевести на `python3` + стартовый ноутбук с БД.
+- [ ] Разово наблюдалось: посторонний клиент завалил `POST /plan` во время
+  seed → гонка в `load_movements`. Не воспроизвелось после чистой
+  пересборки; смягчено тем, что preview больше не пишет. Если повторится —
+  startup-lock на seed.
 
 ### Двойник
 - [ ] Диспетчеризация расчётов по `twin.kind` в обработчике `/plan`

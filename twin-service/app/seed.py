@@ -26,9 +26,12 @@ async def seed_demo() -> None:
     csv_text = (SEED_DIR / "product_movement_data.csv").read_text()
     rows = parse_movements(csv_text, spec["config"].get("ingest"))
     await store.replace_movements(twin["id"], rows)
+    await store.refresh_daily_agg()
 
+    # Plan from the day-grouped movements, exactly as POST /plan would.
+    daily = await store.load_movements(twin["id"])
     params = spec["config"].get("plan_defaults", {})
-    result = plan_production(rows, params)
+    result = plan_production(daily, params)
     await store.save_plan(twin["id"], params, result, activate=True)
     await store.patch_state(
         twin["id"],

@@ -71,8 +71,10 @@ flowchart LR
 | `POST` | `/api/twins/{id}/ingest` | загрузить CSV движения (файл или `text/csv`) |
 | `POST` | `/api/twins/{id}/measurements` | добавить точки временных рядов |
 | `GET` | `/api/twins/{id}/history` | выборка временных рядов |
-| `POST` | `/api/twins/{id}/plan?activate=` | пересчитать план (what-if), опц. сделать активным |
+| `POST` | `/api/twins/{id}/plan` | what-if: пересчитать план (не сохраняется) |
+| `POST` | `/api/twins/{id}/plan?activate=true` | пересчитать и сделать активным (пишет `plan`, двигает `state`) |
 | `GET` | `/api/twins/{id}/plan` | активный план + история планов |
+| `GET` | `/api/twins/{id}/events` | журнал событий процесса |
 | `GET` | `/api/twins/{id}/flow` | схема процесса со статусами узлов и потоками |
 | `WS` | `/api/twins/{id}/ws` | пуш обновлений схемы/состояния/плана |
 
